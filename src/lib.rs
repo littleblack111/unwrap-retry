@@ -12,7 +12,7 @@ pub trait RetryableResultFn<T> {
     fn unwrap_blocking(self) -> T;
 }
 
-impl<T, E: Error + Clone + PartialEq, F: FnMut() -> Result<T, E>> RetryableResultFn<T> for F {
+impl<T, E: Error, F: FnMut() -> Result<T, E>> RetryableResultFn<T> for F {
     #[cfg_attr(
         feature = "track-caller",
         track_caller
@@ -26,18 +26,19 @@ impl<T, E: Error + Clone + PartialEq, F: FnMut() -> Result<T, E>> RetryableResul
             match res {
                 Ok(o) => return o,
                 Err(ref e) => {
-                    if err.as_ref() != Some(e) {
+                    let e = format!("{e:#?}");
+                    if err.as_ref() != Some(&e) {
                         if cfg!(feature = "track-caller") {
                             println!(
-                                "Error at {}:{}:{}: {e:#?}, will block till success...",
+                                "Error at {}:{}:{}: {e}, will block till success...",
                                 caller.file(),
                                 caller.line(),
                                 caller.column()
                             );
                         } else {
-                            println!("Error: {e:#?}, will block till success...");
+                            println!("Error: {e}, will block till success...");
                         }
-                        err = Some(e.clone());
+                        err = Some(e);
                     }
                     res = self();
                 }
@@ -50,7 +51,7 @@ pub trait RetryableResultAsyncFn<T> {
     async fn unwrap_res(self, wait: Option<Duration>) -> T;
 }
 
-impl<T, E: Error + Clone + PartialEq, Fut: Future<Output = Result<T, E>>, F: FnMut() -> Fut> RetryableResultAsyncFn<T> for F {
+impl<T, E: Error, Fut: Future<Output = Result<T, E>>, F: FnMut() -> Fut> RetryableResultAsyncFn<T> for F {
     #[cfg_attr(
         feature = "track-caller",
         track_caller
@@ -58,24 +59,25 @@ impl<T, E: Error + Clone + PartialEq, Fut: Future<Output = Result<T, E>>, F: FnM
     async fn unwrap_res(mut self, wait: Option<Duration>) -> T {
         let caller = Location::caller();
         let mut res = self().await;
-        let mut err = None;
+        let mut err: Option<String> = None;
 
         loop {
             match res {
                 Ok(o) => return o,
                 Err(ref e) => {
-                    if err.as_ref() != Some(e) {
+                    let e = format!("{e:#?}");
+                    if err.as_ref() != Some(&e) {
                         if cfg!(feature = "track-caller") {
                             println!(
-                                "Error at {}:{}:{}: {e:#?}, will block till success...",
+                                "Error at {}:{}:{}: {e}, will block till success...",
                                 caller.file(),
                                 caller.line(),
                                 caller.column()
                             );
                         } else {
-                            println!("Error: {e:#?}, will block till success...");
+                            println!("Error: {e}, will block till success...");
                         }
-                        err = Some(e.clone());
+                        err = Some(e);
                     }
                     res = self().await;
                 }
