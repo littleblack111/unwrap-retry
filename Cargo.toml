@@ -1,6 +1,6 @@
 [package]
 name = "unwrap-retry"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "Easily auto retrying your Results and Options"
 license = "GPL-3.0-or-later"
