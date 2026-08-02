@@ -1,12 +1,16 @@
 [package]
 name = "unwrap-retry"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "Easily auto retrying your Results and Options"
 license = "GPL-3.0-or-later"
 
 [features]
-default = ["track-caller"]
+default = ["track-caller", "tokio"]
 track-caller = []
+tokio = ["dep:tokio"]
+async-std = ["dep:async-std"]
 
 [dependencies]
+async-std = { version = "1.13.2", optional = true }
+tokio = { version = "1.53.1", features = ["time"], optional = true }

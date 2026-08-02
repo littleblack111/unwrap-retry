@@ -4,9 +4,26 @@
 )]
 #![allow(async_fn_in_trait)]
 
-use std::{error::Error, future::Future, panic::Location, thread::sleep, time::Duration};
+use std::{error::Error, future::Future, panic::Location, time::Duration};
 
 const INTERVAL_MS: Duration = Duration::from_millis(50);
+
+#[inline(always)]
+async fn sleep(duration: Duration) {
+    #[cfg(feature = "tokio")]
+    tokio::time::sleep(duration).await;
+    #[cfg(feature = "async-std")]
+    async_std::task::sleep(duration).await;
+    #[cfg(
+        not(
+            any(
+                feature = "tokio",
+                feature = "async-std"
+            )
+        )
+    )]
+    compile_error!("You must enable either the 'tokio' or 'async-std' feature.");
+}
 
 pub trait RetryableResultFn<T> {
     fn unwrap_blocking(self) -> T;
@@ -48,15 +65,17 @@ impl<T, E: Error, F: FnMut() -> Result<T, E>> RetryableResultFn<T> for F {
 }
 
 pub trait RetryableResultAsyncFn<T> {
-    async fn unwrap_res(self, wait: Option<Duration>) -> T;
+    async fn unwrap_retry(self, wait: Option<Duration>) -> T;
 }
 
-impl<T, E: Error, Fut: Future<Output = Result<T, E>>, F: FnMut() -> Fut> RetryableResultAsyncFn<T> for F {
+impl<T, E: Error, Fut: Future<Output = Result<T, E>>, F: FnMut() -> Fut> RetryableResultAsyncFn<T>
+    for F
+{
     #[cfg_attr(
         feature = "track-caller",
         track_caller
     )]
-    async fn unwrap_res(mut self, wait: Option<Duration>) -> T {
+    async fn unwrap_retry(mut self, wait: Option<Duration>) -> T {
         let caller = Location::caller();
         let mut res = self().await;
         let mut err: Option<String> = None;
@@ -82,7 +101,7 @@ impl<T, E: Error, Fut: Future<Output = Result<T, E>>, F: FnMut() -> Fut> Retryab
                     res = self().await;
                 }
             }
-            sleep(wait.unwrap_or(INTERVAL_MS));
+            sleep(wait.unwrap_or(INTERVAL_MS)).await;
         }
     }
 }
@@ -124,7 +143,7 @@ impl<T, F: FnMut() -> Option<T>> RetryableOptionFn<T> for F {
 }
 
 pub trait RetryableOptionAsyncFn<T> {
-    async fn unwrap_opt(self, wait: Option<Duration>) -> T;
+    async fn unwrap_retry(self, wait: Option<Duration>) -> T;
 }
 
 impl<T, Fut: Future<Output = Option<T>>, F: FnMut() -> Fut> RetryableOptionAsyncFn<T> for F {
@@ -132,7 +151,7 @@ impl<T, Fut: Future<Output = Option<T>>, F: FnMut() -> Fut> RetryableOptionAsync
         feature = "track-caller",
         track_caller
     )]
-    async fn unwrap_opt(mut self, wait: Option<Duration>) -> T {
+    async fn unwrap_retry(mut self, wait: Option<Duration>) -> T {
         let caller = Location::caller();
         let mut printed = false;
 
@@ -155,7 +174,7 @@ impl<T, Fut: Future<Output = Option<T>>, F: FnMut() -> Fut> RetryableOptionAsync
                     }
                 }
             }
-            sleep(wait.unwrap_or(INTERVAL_MS));
+            sleep(wait.unwrap_or(INTERVAL_MS)).await;
         }
     }
 }
