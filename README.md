@@ -7,5 +7,5 @@
 or
 ```diff
 -fallible().unwrap()
-+(|| fallible()).unwrap_blocking()
++(|| fallible()).unwrap_retry()
 ```

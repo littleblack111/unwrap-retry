@@ -26,7 +26,7 @@ async fn sleep(duration: Duration) {
 }
 
 pub trait RetryableResultFn<T> {
-    fn unwrap_blocking(self) -> T;
+    fn unwrap_retry(self) -> T;
 }
 
 impl<T, E: Error, F: FnMut() -> Result<T, E>> RetryableResultFn<T> for F {
@@ -34,7 +34,7 @@ impl<T, E: Error, F: FnMut() -> Result<T, E>> RetryableResultFn<T> for F {
         feature = "track-caller",
         track_caller
     )]
-    fn unwrap_blocking(mut self) -> T {
+    fn unwrap_retry(mut self) -> T {
         let caller = Location::caller();
         let mut res = self();
         let mut err = None;
@@ -107,7 +107,7 @@ impl<T, E: Error, Fut: Future<Output = Result<T, E>>, F: FnMut() -> Fut> Retryab
 }
 
 pub trait RetryableOptionFn<T> {
-    fn unwrap_blocking(self) -> T;
+    fn unwrap_retry(self) -> T;
 }
 
 impl<T, F: FnMut() -> Option<T>> RetryableOptionFn<T> for F {
@@ -115,7 +115,7 @@ impl<T, F: FnMut() -> Option<T>> RetryableOptionFn<T> for F {
         feature = "track-caller",
         track_caller
     )]
-    fn unwrap_blocking(mut self) -> T {
+    fn unwrap_retry(mut self) -> T {
         let caller = Location::caller();
         let mut printed = false;
 
